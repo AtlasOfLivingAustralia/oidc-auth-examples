@@ -53,7 +53,9 @@ When the page loads, the token is retireved using the `getRedirectResult()` func
 
 #### PKCE Authentication
 
-The [ala-web-auth](https://github.com/AtlasOfLivingAustralia/ala-web-auth) does not support PKCE authentication (yet) as it is simply a proof of concept, however, the PKCE authentication under the 'Expo' section below explains an approach to implementing it when using ALA OIDC Authentication.
+The [ala-web-auth](https://github.com/AtlasOfLivingAustralia/ala-web-auth) does not support PKCE authentication (yet) as it is simply a proof of concept, however, the PKCE authentication under the 'Expo' section below explains an approach to implementing it when authenitcating with ALA.
+
+Please also see the [Authentication Code Flow](https://docs.ala.org.au/#authentication-code-flow) section of the ALA API Docs for more information on PKCE authentication.
 
 #### React Wrapper
 
