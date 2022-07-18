@@ -3,27 +3,77 @@
 > Example code snippets for OIDC authentication with ALA systems
 
 - [oidc-auth-examples](#oidc-auth-examples)
-  - [Introduction](#introduction)
-  - [Examples](#examples)
-    - [Single Page Application](#single-page-application)
-      - [Implicit Authentication](#implicit-authentication)
-      - [PKCE Authentication](#pkce-authentication)
-      - [React Wrapper](#react-wrapper)
-    - [Expo Application](#expo-application)
-      - [Implicit Authentication](#implicit-authentication-1)
-      - [PKCE Authentication](#pkce-authentication-1)
+- [Introduction](#introduction)
+- [Examples](#examples)
+  - [Single Page Application](#single-page-application)
+    - [PKCE Authentication](#pkce-authentication)
+    - [Implicit Authentication](#implicit-authentication)
+  - [Expo Application](#expo-application)
+    - [PKCE Authentication](#pkce-authentication-1)
+    - [Implicit Authentication](#implicit-authentication-1)
 
-## Introduction
+# Introduction
 
 This repository provides several examples of how to use the Atlas of Living Australia's new OIDC authentication system.
 
 The **[Atlas of Living Australia API Docs](https://docs.ala.org.au/#authentication)** should also be used as a reference.
 
-## Examples
+# Examples
 
-### Single Page Application
+## Single Page Application
 
-#### Implicit Authentication
+### PKCE Authentication
+
+An example React application which implements SPA PKCE authentication can be found in the [ala-oidc-react](https://github.com/AtlasOfLivingAustralia/ala-oidc-react) repository. This example application uses the [react-oidc-context](https://www.npmjs.com/package/react-oidc-context) package to handle OIDC authentication.
+
+The two key components of this OIDC auth implementation are as follows:
+
+1. The `App.tsx` component includes an authentication provider, like so:
+
+```tsx
+import { AuthProvider } from 'react-oidc-context';
+
+<AuthProvider
+  client_id='your_client_id'
+  authority='your_authority_uri' // I.E. The OIDC discovery endpoint
+  redirect_uri='your_redirect_uri'
+  onSigninCallback={(user) => console.log('TESTING', user)} // Must be specified
+>
+  {/* Your application here... */}
+</AuthProvider>;
+```
+
+2. The authentication page (`src/routes/Auth/index.tsx`) implements the necessary login / logout functionality
+
+```tsx
+function Auth(): ReactElement {
+  const auth = useAuth();
+
+  // Login / logout handler
+  const onClick = useCallback(() => {
+    if (auth.isAuthenticated) {
+      auth.signoutRedirect();
+    } else {
+      auth.signinRedirect();
+    }
+  }, [auth]);
+
+  return (
+    <>
+      <Button onClick={onClick}>
+        {auth.isAuthenticated ? 'Sign Out' : 'Sign In'}
+      </Button>
+      {auth.isAuthenticated && <div>{JSON.stringify(auth.user, null, 2)}</div>}
+    </>
+  );
+}
+```
+
+Please see the [Authentication Code Flow](https://docs.ala.org.au/#authentication-code-flow) section of the ALA API Docs for more information on PKCE authentication.
+
+### Implicit Authentication
+
+**This method of authentication is <u>no longer recommended</u>. Please refer to the PKCE style of authentication above.**
 
 The [ala-web-auth](https://github.com/AtlasOfLivingAustralia/ala-web-auth) repository provides an example of how to use ALA's implicit OIDC authentication for Single Page Applications.
 
@@ -40,34 +90,84 @@ The following code snippit provides an example of this:
 ```typescript
 const onLoginClick = (): void => {
   const client = getClient(
-    "oidc-test-client-id",
-    ["openid", "email", "profile", "users:read"],
-    "test"
+    'oidc-test-client-id',
+    ['openid', 'email', 'profile'],
+    'test'
   );
-  console.log(getAuthUrl(client, "https://localhost:3000"));
-  signInWithRedirect(client, "http://localhost:3000");
+  console.log(getAuthUrl(client, 'https://localhost:3000'));
+  signInWithRedirect(client, 'http://localhost:3000');
 };
 ```
 
-When the page loads, the token is retireved using the `getRedirectResult()` function and stored using [Local Storage](https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage).
+## Expo Application
 
-#### PKCE Authentication
+### PKCE Authentication
 
-The [ala-web-auth](https://github.com/AtlasOfLivingAustralia/ala-web-auth) does not support PKCE authentication (yet) as it is simply a proof of concept, however, the PKCE authentication under the 'Expo' section below explains an approach to implementing it when authenitcating with ALA.
+The [biocollect-expo](https://github.com/AtlasOfLivingAustralia/biocollect-expo) repository provides sample code for using OIDC PKCE Authentication, using the [expo-auth-session](https://docs.expo.dev/versions/latest/sdk/auth-session/) package.
 
-Please also see the [Authentication Code Flow](https://docs.ala.org.au/#authentication-code-flow) section of the ALA API Docs for more information on PKCE authentication.
+Also see the [Authentication Code Flow](https://docs.ala.org.au/#authentication-code-flow) section of the ALA API Documentation.
 
-#### React Wrapper
+1. Firstly, the we construct a new auth request object.
 
-Libraries such as [react-oidc-context](https://github.com/authts/react-oidc-context) can be used to provide OIDC functionality when using React.
+```typescript
+// Auth Session
+import {
+  fetchDiscoveryAsync,
+  CodeChallengeMethod,
+  AuthRequest,
+  AccessTokenRequest,
+} from 'expo-auth-session';
 
-For more information, please view the repository README.
+// Create a deep link for authentication redirects
+const redirectUri = Linking.createURL('/auth');
 
-### Expo Application
+// Construct the OIDC code request
+const codeRequest = new AuthRequest({
+  clientId: 'client-id-here',
+  redirectUri,
+  scopes: ['openid', 'email', 'profile'],
+  codeChallengeMethod: CodeChallengeMethod.S256,
+});
+```
 
-#### Implicit Authentication
+**Note:** The supplied `redirectUri` parameter is a _deep link_, meaning that the user will be redirected back within the application upon successfully logging in.
 
-The [biocollect-expo](https://github.com/AtlasOfLivingAustralia/biocollect-expo) repository provides sample code for using `implicit` OIDC Authentication, using the [expo-web-browser](https://docs.expo.dev/versions/latest/sdk/webbrowser/) and [expo-linking](https://docs.expo.dev/versions/latest/sdk/linking/) packages.
+2. Then, we call the `fetchDiscoveryAsync` function to retrieve the ALA's OpenID Connect Discovery metadata and start the authentication flow.
+
+```typescript
+// Fetch the discovery metadata
+const discovery = await fetchDiscoveryAsync(
+  'https://auth-test.ala.org.au/cas/oidc'
+);
+
+// Start the authentication flow
+const result = await codeRequest.promptAsync(discovery);
+```
+
+Upon successful authentication, we're provided with an [AuthSessionResult](https://docs.expo.dev/versions/latest/sdk/auth-session/#authsessionresult) object.
+
+We use this code to finally construct & perform a token request, which retireves the user's access token and ID token.
+
+```typescript
+// Construct the OIDC access token request
+const tokenRequest = new AccessTokenRequest({
+  clientId: codeRequest.clientId,
+  scopes: codeRequest.scopes,
+  code: result.params.code,
+  redirectUri,
+  extraParams: {
+    code_verifier: codeRequest.codeVerifier,
+  },
+});
+
+const accessToken = await tokenRequest.performAsync(discovery);
+```
+
+The `performAsync()` method returns a [TokenResponse](https://docs.expo.dev/versions/latest/sdk/auth-session/#tokenresponseconfig) object, which can be used for subsequent authentication requests.
+
+### Implicit Authentication
+
+**This method of authentication is <u>no longer recommended</u>. Please refer to the PKCE style of authentication below.**
 
 The general flow for Expo implicit OIDC Authentication follows as such:
 
@@ -78,16 +178,16 @@ The general flow for Expo implicit OIDC Authentication follows as such:
 The following is a simple authentication code snippit from the repository:
 
 ```typescript
-import * as Linking from "expo-linking";
+import * as Linking from 'expo-linking';
 import {
   openAuthSessionAsync,
   WebBrowserRedirectResult,
-} from "expo-web-browser";
+} from 'expo-web-browser';
 
 // Authentication handler
 const handleAuth = async (): Promise<void> => {
-  const client_id = "client-id-here";
-  const redirect_uri = Linking.createURL("/auth");
+  const client_id = 'client-id-here';
+  const redirect_uri = Linking.createURL('/auth');
 
   // Start the authentication session
   const result = await openAuthSessionAsync(
@@ -96,21 +196,6 @@ const handleAuth = async (): Promise<void> => {
   );
 
   // Navigate to the home screen upon successful authentication
-  if (result.type === "success") props.navigation.navigate("Home");
+  if (result.type === 'success') props.navigation.navigate('Home');
 };
 ```
-
-#### PKCE Authentication
-
-The above example can be modified to support PKCE authentication, with the following changes to the query parameters:
-
-```typescript
-{
-	response_type: 'code',
-	code_challenge_method: 'S256', // SHA-256 Encoding
-	code_challende: 'generated-code'
-}
-```
-
-- More information about PKCE is available [here](https://oauth.net/2/pkce/).
-- Also see the [Authentication Code Flow](https://docs.ala.org.au/#authentication-code-flow) section of the ALA API Documentation.
