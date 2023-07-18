@@ -71,34 +71,6 @@ function Auth(): ReactElement {
 
 Please see the [Authentication Code Flow](https://docs.ala.org.au/#authentication-code-flow) section of the ALA API Docs for more information on PKCE authentication.
 
-### Implicit Authentication
-
-**This method of authentication is <u>no longer recommended</u>. Please refer to the PKCE style of authentication above.**
-
-The [ala-web-auth](https://github.com/AtlasOfLivingAustralia/ala-web-auth) repository provides an example of how to use ALA's implicit OIDC authentication for Single Page Applications.
-
-<u>**PLEASE NOTE: This is only proof-of-concept not currently published to NPM, and hence, will need to be built locally before being used.**</u>
-
-The general flow for SPA implicit OIDC Authentication follows as such:
-
-1. The user clicks the login button, and is redirected to the authentication page.
-2. The user enters their credentials.
-3. Upon successful authentication, the user is redirected back to the SPA with the token provided in the query parameters.
-
-The following code snippit provides an example of this:
-
-```typescript
-const onLoginClick = (): void => {
-  const client = getClient(
-    'oidc-test-client-id',
-    ['openid', 'email', 'profile'],
-    'test'
-  );
-  console.log(getAuthUrl(client, 'https://localhost:3000'));
-  signInWithRedirect(client, 'http://localhost:3000');
-};
-```
-
 ## Expo Application
 
 ### PKCE Authentication
